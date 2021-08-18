@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Films</title>
+
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet"
+		integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
+	<link rel="stylesheet" href="assets/css/style.min.css">
+
+</head>
+
+<body>
+
+	<div id="app">
+
+		<fav_panel :list="fav_list" :show="showPanel"></fav_panel>
+
+		<div class="container mt-4">
+
+			<div class="title wow animate__backInDown">FILMS</div>
+
+			<div class="mb-4 wow animate__backInLeft">
+				<div class="card_body">
+					<form v-on:submit="searchMovie">
+						<div class="row search_row">
+							<div class="col-6">
+								<input type="text" class="form-control" v-model="search" placeholder="Search"
+									list="history">
+								<datalist id="history">
+									<option v-for="h in search_history" :key="h" :value="h"></option>
+								</datalist>
+							</div>
+							<div class="col-2">
+								<select class="form-control" v-model="type">
+									<option value="">All</option>
+									<option value="movie">Movie</option>
+									<option value="series">Series</option>
+									<option value="episode">Episode</option>
+								</select>
+							</div>
+							<div class="col-1">
+								<input type="number" class="form-control" v-model="year" placeholder="year">
+							</div>
+							<div class="col-3">
+								<button type="submit" class="btn btn-primary me-3">Search</button>
+								<button type="button" class="btn btn-warning fs-4 p-2 pt-0 pb-0 me-3"
+									@click="showPanel=true">&star;</button>
+								<button type="button" class="btn fs-4 p-2 pt-0 pb-0 me-1"
+									:class="rowView?'btn-light':'btn-dark'" @click="rowView=false">B</button>
+								<button type="button" class="btn fs-4 p-2 pt-0 pb-0 me-3"
+									:class="!rowView?'btn-light':'btn-dark'" @click="rowView=true">R</button>
+								<button type="button" class="btn btn-secondary fs-4 p-2 pt-0 pb-0"
+									@click="reset()">Reset</button>
+							</div>
+						</div>
+					</form>
+				</div>
+			</div>
+
+			<div class="movie_list row" :class="{'rows_view':rowView}">
+				<div class="card col-3 p-4 wow animate__backInUp" v-for="item in result.Search" :key="item.imdbID">
+					<div class="card_body d-flex flex-column justify-content-between">
+						<div class="card_img">
+							<img :src="item.Poster!=='N/A'?item.Poster:'https://via.placeholder.com/237x334'"
+								:alt="item.Title">
+							<button
+								class="btn btn-warning btn-sm position-absolute top-0 end-0 me-1 mt-1 fs-5 p-1 pt-0 pb-0"
+								@click="toggleFav(item.imdbID)"><span v-if="item.inFav">&starf;</span><span
+									v-else>&star;</span></button>
+						</div>
+						<h4 class="card_title">{{ item.Title }}</h4>
+						<div>
+							<div class="movie_year small mb-2">{{ item.Year }}</div>
+							<button type="button" class="btn btn-info" @click="detail(item.imdbID)">Details</button>
+						</div>
+					</div>
+				</div>
+			</div>
+			<pagination :page="page" :total_items="result.totalResults"></pagination>
+		</div>
+
+
+
+		<div class="modal fade" :class="{'show':showModal}" tabindex="-1">
+			<div class="modal-dialog modal-lg">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title">{{ details.Title }}</h5>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
+							@click="showModal = false"></button>
+					</div>
+					<div class="modal-body row">
+						<img :src="details.Poster" :alt="details.Title" class="col-4 mb-2">
+						<p class="modal_text col-8">
+						<h4>{{ details.Title }}</h4>
+						<movie-ratings :ratings="details.Ratings"></movie-ratings>
+
+						<div>{{ details.Released }}</div>
+						<div>{{ details.Genre }}</div>
+						<div>{{ details.Plot }}</div>
+						</p>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+							@click="showModal = false">Close</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<template id="ratings_list">
+		<div class="rating_wrap">
+			<div class="rating_item" v-for="rating in ratings_list" :key="rating.Source">
+				<div class="row">
+					<div class="col-8">{{ rating.Source }}</div>
+					<div class="col-4 text-end">{{ rating.Value }}</div>
+				</div>
+				<div class="rating_scale">
+					<span :style="'Width:'+rating.Width+'%'"></span>
+				</div>
+			</div>
+		</div>
+	</template>
+
+	<template id="fav_panel">
+		<div class="fade_screen" :class="{'opened':show}">
+			<div class="fav_panel">
+				<div class="row mb-2">
+					<div class="col-10">
+						<h3>Fovotite List</h3>
+					</div>
+					<div class="col-2 text-end">
+						<button class="btn btn-danger btn-sm me-2" @click="closePanel">&times;</button>
+					</div>
+				</div>
+				<hr>
+				<div class="fav_list">
+					<div class="movie_list row row-cols-md-2 g-4">
+						<div class="col" v-for="item in list" :key="item.imdbID">
+							<div class="card h-100">
+								<div class="card_body d-flex flex-column justify-content-between">
+									<div class="card_img">
+										<img :src="item.Poster!=='N/A'?item.Poster:'https://via.placeholder.com/237x334'"
+											:alt="item.Title">
+										<button
+											class="btn btn-warning btn-sm position-absolute top-0 end-0 me-1 mt-1 fs-5 p-1 pt-0 pb-0"
+											@click="toggleFav(item.imdbID)">&starf;</button>
+									</div>
+									<h4 class="card_title">{{ item.Title }}</h4>
+									<div>
+										<div class="movie_year small mb-2">{{ item.Year }}</div>
+										<button type="button" class="btn btn-info"
+											@click="detail(item.imdbID)">Details</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</template>
+
+	<template id="pagination">
+		<nav aria-label="Page navigation example"
+			class="mt-3 d-flex justify-content-center w100 wow animate__backInRight">
+			<ul class="pagination text-center flex-wrap justify-content-center">
+				<li class="page-item" v-if="page!=1"><a class="page-link" href="javascript:void(0)"
+						@click="goToPrev">Previous</a></li>
+				<li v-for="num in total_pages" :key="num" class="page-item">
+					<a class="page-link" href="javascript:void(0)" v-if="num!=page" @click="goToPage(num)">{{ num }}</a>
+					<span class="page-link" v-else>{{ num }}</span>
+				</li>
+				<li class="page-item" v-if="page!=total_pages"><a class="page-link" href="javascript:void(0)"
+						@click="goToNext">Next</a></li>
+			</ul>
+		</nav>
+	</template>
+
+
+	<script src="assets/js/wow.min.js"></script>
+	<script src="assets/js/vue.global.js"></script>
+	<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+	<script src="assets/js/main.js"></script>
+
+	<script>
+		wow = new WOW(
+			{
+				boxClass: 'wow',      // default
+				animateClass: 'animate__animated', // default
+				offset: 20,          // default
+				mobile: true,       // default
+				live: true        // default
+			}
+		)
+		wow.init();
+	</script>
+</body>
+
+</html>
